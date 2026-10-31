@@ -1,0 +1,28 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>gomtai – Gom tải</title>
+<style>
+body{font-family:"Noto Sans",system-ui,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;background:#f6f7f9}
+textarea{width:100%;height:110px;font-family:monospace}button{cursor:pointer;padding:.35rem .8rem}
+.t{background:#fff;border-radius:8px;padding:.6rem .8rem;margin:.5rem 0;box-shadow:0 1px 3px #0002}
+.bar{height:10px;background:#e3e6ea;border-radius:5px;overflow:hidden;margin:.4rem 0}
+.bar div{height:100%;background:#2f7de1;transition:width .2s}.done .bar div{background:#2aa55a}.error .bar div{background:#d33}
+.meta{font-size:.85rem;color:#555}
+</style></head><body>
+<h1>gomtai – Gom tải</h1>
+<p>Dán nhiều liên kết, mỗi dòng một liên kết. File tải xong được xếp vào thư mục theo loại.</p>
+<textarea id="links" placeholder="https://..."></textarea><br><button onclick="add()">Thêm vào hàng đợi</button>
+<div id="list"></div>
+<script>
+const L={queued:"Đang chờ",downloading:"Đang tải",paused:"Tạm dừng",done:"Hoàn tất",error:"Lỗi"};
+function fmt(n){return n==null?"?":n<1048576?(n/1024).toFixed(1)+" KB":(n/1048576).toFixed(2)+" MB"}
+async function add(){const r=await fetch("/api/tasks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({links:links.value})});
+ if(!r.ok){alert((await r.json()).error)}else links.value="";refresh()}
+async function act(id,a){await fetch(`/api/tasks/${id}/${a}`,{method:"POST"});refresh()}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+async function refresh(){const ts=await (await fetch("/api/tasks")).json();
+ list.innerHTML=ts.map(t=>{const p=t.progress==null?0:t.progress*100;
+ const b=["queued","downloading"].includes(t.status)?`<button onclick="act('${t.id}','pause')">Tạm dừng</button>`:["paused","error"].includes(t.status)?`<button onclick="act('${t.id}','resume')">Tiếp tục</button>`:"";
+ return `<div class="t ${t.status}"><b>${esc(t.filename)}</b> — ${L[t.status]} ${b}
+ <div class="bar"><div style="width:${p}%"></div></div>
+ <div class="meta">${fmt(t.downloaded)} / ${fmt(t.total)} · ${t.resumable===true?"hỗ trợ Range":t.resumable===false?"không hỗ trợ Range":""} ${t.error?"· "+esc(t.error):""} ${t.final_path?"· "+esc(t.final_path):""}</div></div>`}).join("")}
+setInterval(refresh,500);refresh();
+</script></body></html>
